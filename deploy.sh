@@ -24,6 +24,25 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── 1. System packages ────────────────────────────────────────────────────────
 step "System packages"
+
+# GCP VMs run unattended-upgrades on boot which holds the apt lock.
+# Wait up to 3 minutes for it to finish, then kill it if still running.
+info "Waiting for apt lock to be free..."
+WAIT=0
+while sudo fuser /var/lib/dpkg/lock-frontend &>/dev/null; do
+  if [[ $WAIT -ge 180 ]]; then
+    warn "apt lock held too long — stopping unattended-upgrades..."
+    sudo systemctl stop unattended-upgrades || true
+    sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
+    sudo dpkg --configure -a --force-confold || true
+    break
+  fi
+  echo -n "."
+  sleep 5
+  WAIT=$((WAIT + 5))
+done
+echo ""
+
 sudo apt-get update -qq
 sudo apt-get install -y -qq curl nginx certbot python3-certbot-nginx
 
