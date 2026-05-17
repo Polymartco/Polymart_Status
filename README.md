@@ -39,25 +39,35 @@ chmod +x setup.sh
 
 ## Production deployment
 
-### Docker (recommended)
+### Google Cloud (one-click)
+
+SSH into your Compute Engine VM, clone this repo, then run:
+
+```bash
+bash deploy.sh
+```
+
+The script will prompt for your domain and email, then handle everything:
+installing Docker, building the container, configuring nginx, and issuing an
+SSL certificate via Let's Encrypt.
+
+**Before running**, make sure ports 80 and 443 are open in GCP:
+
+```bash
+gcloud compute firewall-rules create allow-http-https \
+  --allow tcp:80,tcp:443 \
+  --target-tags http-server,https-server
+```
+
+Or: GCP Console → VPC Network → Firewall → Create Rule.
+
+### Docker (manual)
 
 ```bash
 docker compose up --build -d
 ```
 
 Serves the built app on **port 3000** via nginx. To change the port, edit `docker-compose.yml`.
-
-### Manual (nginx)
-
-```bash
-npm ci
-npm run build          # outputs to dist/
-
-# Copy dist/ to your web root, then use nginx.conf as your site config
-cp nginx.conf /etc/nginx/sites-available/polymart-status
-ln -s /etc/nginx/sites-available/polymart-status /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-```
 
 ### Static hosting (Vercel / Netlify / Cloudflare Pages)
 
