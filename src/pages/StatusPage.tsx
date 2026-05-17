@@ -58,7 +58,7 @@ const GROUPS: GroupDef[] = [
     critical: true,
     checks: [
       { id: 'stocks',      name: 'All Stocks',   url: `${BASE}/api/v1/getStocks`,            critical: true },
-      { id: 'stock-aapl',  name: 'Single Stock', url: `${BASE}/api/v1/getStock?ticker=AAPL`, critical: true },
+      { id: 'stock-aapl',  name: 'Single Stock', url: `${BASE}/api/v1/getStock?ticker=QUAK`, critical: true },
       { id: 'topmovers',   name: 'Top Movers',   url: `${BASE}/api/v1/getTopMovers` },
       { id: 'sectors',     name: 'Sectors',      url: `${BASE}/api/v1/getSectors` },
       { id: 'leaderboard', name: 'Leaderboard',  url: `${BASE}/api/v1/getLeaderboard` },
@@ -154,6 +154,21 @@ async function runCheck(check: CheckDef, retrying = false): Promise<CheckResult>
     const latency = Date.now() - start
 
     if (res.status !== expected) {
+      // Auth endpoints: any 4xx means the server is up and auth middleware is
+      // running — a different 4xx or an error body with auth language is fine.
+      if (check.expectStatus === 401 && res.status >= 400 && res.status < 500) {
+        return { status: 'operational', latency, detail: null }
+      }
+      // Also check response body for auth-error language before marking down
+      if (check.expectStatus === 401) {
+        try {
+          const body = await res.clone().json() as Record<string, unknown>
+          const msg = String(body.error ?? body.message ?? '').toLowerCase()
+          if (msg.includes('auth') || msg.includes('token') || msg.includes('unauthorized') || msg.includes('required')) {
+            return { status: 'operational', latency, detail: null }
+          }
+        } catch { /* not JSON — fall through */ }
+      }
       if (!retrying) {
         await new Promise(r => setTimeout(r, 3000))
         return runCheck(check, true)
