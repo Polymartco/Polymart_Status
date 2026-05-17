@@ -62,8 +62,21 @@ sudo systemctl enable --now docker
 step "Build & start"
 info "Building image and starting container..."
 cd "$REPO_DIR"
+# If port 3000 is taken, find a free port
+PORT=3000
+while sudo ss -tlnp | grep -q ":${PORT} "; do
+  warn "Port ${PORT} is in use, trying $((PORT+1))..."
+  PORT=$((PORT + 1))
+done
+
+if [[ "$PORT" != "3000" ]]; then
+  info "Using port ${PORT} instead of 3000"
+  sed -i "s/\"3[0-9]*:80\"/\"${PORT}:80\"/" docker-compose.yml
+fi
+
+sudo docker compose down 2>/dev/null || true
 sudo docker compose up --build -d
-info "Container running on port 3000"
+info "Container running on port ${PORT}"
 
 # ── 4. nginx reverse proxy ────────────────────────────────────────────────────
 step "nginx"
@@ -74,7 +87,7 @@ server {
 
     # Forward to Docker container
     location / {
-        proxy_pass         http://127.0.0.1:3000;
+        proxy_pass         http://127.0.0.1:${PORT};
         proxy_http_version 1.1;
         proxy_set_header   Host              \$host;
         proxy_set_header   X-Real-IP         \$remote_addr;
