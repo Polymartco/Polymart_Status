@@ -102,6 +102,65 @@ function makeInitialStates(): Record<string, CheckState> {
   )
 }
 
+// ─── Uptime history ───────────────────────────────────────────────────────────
+
+type DayStatus = 'operational' | 'degraded' | 'down'
+type UptimeHistory = Record<string, Record<string, DayStatus>> // group → date → status
+
+const UPTIME_KEY = 'polymart-uptime-v1'
+const UPTIME_DAYS = 90
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function last90Days(): string[] {
+  return Array.from({ length: UPTIME_DAYS }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (UPTIME_DAYS - 1 - i))
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+function loadHistory(): UptimeHistory {
+  try {
+    const raw = localStorage.getItem(UPTIME_KEY)
+    return raw ? (JSON.parse(raw) as UptimeHistory) : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveHistory(h: UptimeHistory): void {
+  try { localStorage.setItem(UPTIME_KEY, JSON.stringify(h)) } catch { /* quota */ }
+}
+
+function recordDayStatus(history: UptimeHistory, group: string, status: DayStatus): UptimeHistory {
+  const today = todayStr()
+  const days = last90Days()
+  const prev = history[group] ?? {}
+  // Worst status wins within a day (once marked down, stays down for that day)
+  const existing = prev[today]
+  const next: DayStatus =
+    existing === 'down' || status === 'down' ? 'down' :
+    existing === 'degraded' || status === 'degraded' ? 'degraded' :
+    'operational'
+  // Prune to 90-day window
+  const pruned = Object.fromEntries(Object.entries(prev).filter(([d]) => days.includes(d)))
+  return { ...history, [group]: { ...pruned, [today]: next } }
+}
+
+function calcUptime(groupHistory: Record<string, DayStatus>): { pct: number | null; earliest: string | null } {
+  const days = last90Days()
+  const recorded = days.filter(d => groupHistory[d])
+  if (!recorded.length) return { pct: null, earliest: null }
+  const operational = recorded.filter(d => groupHistory[d] === 'operational').length
+  return {
+    pct: Math.round((operational / recorded.length) * 1000) / 10,
+    earliest: recorded[0],
+  }
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Safely coerce a value to a finite number, or null. */
@@ -149,26 +208,25 @@ interface CheckResult {
 async function runCheck(check: CheckDef, retrying = false): Promise<CheckResult> {
   const start = Date.now()
   const expected = check.expectStatus ?? 200
+  const isAuthCheck = check.expectStatus === 401
   try {
-    const res = await fetch(check.url, { signal: AbortSignal.timeout(5000) })
+    // Auth-protected endpoints lack CORS headers, so the browser blocks a
+    // normal cross-origin request before it even gets a status code. Using
+    // no-cors lets the request through: any response (opaque) = server up;
+    // a thrown error = genuine network failure or timeout.
+    const res = await fetch(check.url, {
+      signal: AbortSignal.timeout(5000),
+      mode: isAuthCheck ? 'no-cors' : 'cors',
+    })
     const latency = Date.now() - start
 
+    if (isAuthCheck) {
+      // Opaque response (status 0) — server responded, auth middleware is up
+      if (latency > 2000) return { status: 'degraded', latency, detail: `slow: ${latency}ms` }
+      return { status: 'operational', latency, detail: null }
+    }
+
     if (res.status !== expected) {
-      // Auth endpoints: any 4xx means the server is up and auth middleware is
-      // running — a different 4xx or an error body with auth language is fine.
-      if (check.expectStatus === 401 && res.status >= 400 && res.status < 500) {
-        return { status: 'operational', latency, detail: null }
-      }
-      // Also check response body for auth-error language before marking down
-      if (check.expectStatus === 401) {
-        try {
-          const body = await res.clone().json() as Record<string, unknown>
-          const msg = String(body.error ?? body.message ?? '').toLowerCase()
-          if (msg.includes('auth') || msg.includes('token') || msg.includes('unauthorized') || msg.includes('required')) {
-            return { status: 'operational', latency, detail: null }
-          }
-        } catch { /* not JSON — fall through */ }
-      }
       if (!retrying) {
         await new Promise(r => setTimeout(r, 3000))
         return runCheck(check, true)
@@ -254,16 +312,31 @@ function StatusBadge({ status, label }: { status: CheckStatus; label?: string })
 
 // ─── Uptime strip ─────────────────────────────────────────────────────────────
 
-function UptimeStrip({ label }: { label: string }) {
+function UptimeStrip({ label, groupHistory }: { label: string; groupHistory: Record<string, DayStatus> }) {
+  const days = last90Days()
+  const { pct } = calcUptime(groupHistory)
+
+  const dotColor = (s: DayStatus | undefined) =>
+    !s              ? 'bg-zinc-800'       :
+    s === 'down'    ? 'bg-red-500/80'     :
+    s === 'degraded'? 'bg-amber-500/80'   :
+                      'bg-emerald-500/70'
+
   return (
     <div className="flex items-center gap-3">
       <span className="text-xs text-zinc-500 w-36 shrink-0 truncate">{label}</span>
       <div className="flex gap-px flex-1 overflow-hidden">
-        {Array.from({ length: 90 }).map((_, i) => (
-          <div key={i} className="h-5 flex-1 rounded-sm bg-emerald-500/70 min-w-0" title={`Day ${90 - i}: Operational`} />
+        {days.map(day => (
+          <div
+            key={day}
+            className={cn('h-5 flex-1 rounded-sm min-w-0', dotColor(groupHistory[day]))}
+            title={`${day}: ${groupHistory[day] ?? 'No data'}`}
+          />
         ))}
       </div>
-      <span className="text-xs text-zinc-500 font-mono shrink-0">100%</span>
+      <span className="text-xs text-zinc-500 font-mono shrink-0 w-10 text-right">
+        {pct !== null ? `${pct}%` : '—'}
+      </span>
     </div>
   )
 }
@@ -507,6 +580,7 @@ function OverallBanner({ status }: { status: CheckStatus }) {
 
 export default function StatusPage() {
   const [states, setStates] = useState<Record<string, CheckState>>(makeInitialStates)
+  const [history, setHistory] = useState<UptimeHistory>(loadHistory)
   const [refreshing, setRefreshing] = useState(false)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const [secondsAgo, setSecondsAgo] = useState(0)
@@ -526,13 +600,15 @@ export default function StatusPage() {
   const runAllChecks = useCallback(async () => {
     setRefreshing(true)
     const checks = GROUPS.flatMap(g => g.checks)
+    const resultMap: Record<string, CheckResult> = {}
+    const promises: Promise<void>[] = []
 
     for (let i = 0; i < checks.length; i++) {
       const check = checks[i]
       if (i > 0) await new Promise(r => setTimeout(r, 200))
 
-      // Fire-and-forget per check; stagger is handled by the loop delay above
-      runCheck(check).then(result => {
+      const p = runCheck(check).then(result => {
+        resultMap[check.id] = result
         setStates(prev => {
           const existing = prev[check.id]
           return {
@@ -548,8 +624,27 @@ export default function StatusPage() {
         })
         if (result.marketData) setSnapshot(prev => ({ ...prev, ...result.marketData }))
         if (result.healthData) setSnapshot(prev => ({ ...prev, ...result.healthData }))
-      }).catch(() => {/* already handled inside runCheck */})
+      }).catch(() => {})
+      promises.push(p)
     }
+
+    await Promise.allSettled(promises)
+
+    // Persist today's worst status per group into localStorage
+    setHistory(prev => {
+      let next = prev
+      for (const group of GROUPS) {
+        const groupStatuses = group.checks
+          .filter(c => resultMap[c.id])
+          .map(c => resultMap[c.id].status)
+        if (!groupStatuses.length) continue
+        const gs = worstStatus(groupStatuses)
+        if (gs === 'unknown') continue
+        next = recordDayStatus(next, group.name, gs as DayStatus)
+      }
+      saveHistory(next)
+      return next
+    })
 
     setLastChecked(new Date())
     setSecondsAgo(0)
@@ -576,7 +671,7 @@ export default function StatusPage() {
         {/* Header */}
         <header className="flex items-center justify-between">
           <a href="https://polymart.co" target="_blank" rel="noopener noreferrer">
-            <img src="/polymartlogo.png" alt="Polymart" className="h-9" />
+            <img src="/polymartlogo.png" alt="Polymart" className="h-16" />
           </a>
           <div className="flex items-center gap-3">
             {refreshing && (
@@ -603,10 +698,17 @@ export default function StatusPage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 space-y-2.5">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-medium text-zinc-100">90-Day Uptime</span>
-            <span className="text-xs text-zinc-600 font-mono">History recording from 2026-05-17</span>
+            <span className="text-xs text-zinc-600 font-mono">
+              {(() => {
+                const allDates = Object.values(history).flatMap(g => Object.keys(g)).sort()
+                return allDates.length
+                  ? `Recording since ${allDates[0]}`
+                  : `Recording from ${todayStr()}`
+              })()}
+            </span>
           </div>
           {GROUPS.filter(g => g.critical).map(g => (
-            <UptimeStrip key={g.name} label={g.name} />
+            <UptimeStrip key={g.name} label={g.name} groupHistory={history[g.name] ?? {}} />
           ))}
         </div>
 
