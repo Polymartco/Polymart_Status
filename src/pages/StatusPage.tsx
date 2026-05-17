@@ -171,7 +171,7 @@ function toNum(v: unknown): number | null {
 }
 
 function fmt2(v: number | null): string {
-  return v !== null ? v.toFixed(2) : '—'
+  return v !== null ? v.toFixed(2) : '-'
 }
 
 function p95(values: number[]): number | null {
@@ -221,7 +221,7 @@ async function runCheck(check: CheckDef, retrying = false): Promise<CheckResult>
     const latency = Date.now() - start
 
     if (isAuthCheck) {
-      // Opaque response (status 0) — server responded, auth middleware is up
+      // Opaque response (status 0) - server responded, auth middleware is up
       if (latency > 2000) return { status: 'degraded', latency, detail: `slow: ${latency}ms` }
       return { status: 'operational', latency, detail: null }
     }
@@ -246,7 +246,7 @@ async function runCheck(check: CheckDef, retrying = false): Promise<CheckResult>
         }
         if (secs > 120) return { status: 'down',     latency, detail: `stale: ${secs}s since last tick`, healthData }
         if (secs > 30)  return { status: 'degraded', latency, detail: `stale: ${secs}s since last tick`, healthData }
-      } catch { /* body parse error — ignore, use HTTP status only */ }
+      } catch { /* body parse error - ignore, use HTTP status only */ }
     }
 
     // Parse market snapshot
@@ -335,7 +335,7 @@ function UptimeStrip({ label, groupHistory }: { label: string; groupHistory: Rec
         ))}
       </div>
       <span className="text-xs text-zinc-500 font-mono shrink-0 w-10 text-right">
-        {pct !== null ? `${pct}%` : '—'}
+        {pct !== null ? `${pct}%` : '-'}
       </span>
     </div>
   )
@@ -463,7 +463,7 @@ function MarketSnapshot({ snap }: { snap: MarketSnapshot }) {
                      : session.includes('pre')       ? 'Pre-market'
                      : session.includes('after')     ? 'After-hours'
                      : session.includes('closed')    ? 'Closed'
-                     : snap.session ?? '—'
+                     : snap.session ?? '-'
 
   const changeSign = (snap.indexChange ?? 0) >= 0 ? '+' : ''
   const changeStr  = snap.indexChange !== null
@@ -485,12 +485,12 @@ function MarketSnapshot({ snap }: { snap: MarketSnapshot }) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <SnapCell label="Index"        value={fmt2(snap.indexValue)}   sub={changeStr}     subColor={changeColor} />
-        <SnapCell label="Fear & Greed" value={snap.fearGreed !== null ? String(Math.round(snap.fearGreed)) : '—'} sub={snap.fearGreed !== null ? fearGreedLabel(snap.fearGreed) : undefined} />
+        <SnapCell label="Fear & Greed" value={snap.fearGreed !== null ? String(Math.round(snap.fearGreed)) : '-'} sub={snap.fearGreed !== null ? fearGreedLabel(snap.fearGreed) : undefined} />
         <SnapCell label="VIX"          value={fmt2(snap.vix)} />
-        <SnapCell label="Tick #"       value={snap.tickCount !== null ? String(snap.tickCount) : '—'} />
+        <SnapCell label="Tick #"       value={snap.tickCount !== null ? String(snap.tickCount) : '-'} />
         <SnapCell
           label="Last Tick"
-          value={snap.secondsSinceLastTick !== null ? `${snap.secondsSinceLastTick}s ago` : '—'}
+          value={snap.secondsSinceLastTick !== null ? `${snap.secondsSinceLastTick}s ago` : '-'}
           subColor={snap.secondsSinceLastTick !== null && snap.secondsSinceLastTick > 30 ? 'text-amber-500' : undefined}
         />
       </div>
@@ -563,8 +563,8 @@ function IncidentHistory() {
 function OverallBanner({ status }: { status: CheckStatus }) {
   const config: Record<CheckStatus, { text: string; classes: string }> = {
     operational: { text: 'All systems operational',                           classes: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' },
-    degraded:    { text: 'Partial degradation — some services affected',      classes: 'bg-amber-500/10 border-amber-500/20 text-amber-400' },
-    down:        { text: 'Major outage — critical services are down',         classes: 'bg-red-500/10 border-red-500/20 text-red-400' },
+    degraded:    { text: 'Partial degradation - some services affected',      classes: 'bg-amber-500/10 border-amber-500/20 text-amber-400' },
+    down:        { text: 'Major outage - critical services are down',         classes: 'bg-red-500/10 border-red-500/20 text-red-400' },
     unknown:     { text: 'Checking system status…',                           classes: 'bg-zinc-800/50 border-zinc-700 text-zinc-400' },
   }
   const { text, classes } = config[status]

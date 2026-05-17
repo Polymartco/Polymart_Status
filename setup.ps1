@@ -1,4 +1,4 @@
-# Polymart Status — setup script (PowerShell)
+# Polymart Status - setup script (PowerShell)
 param(
     [ValidateSet('dev','build','preview','docker')]
     [string]$Mode = 'dev'

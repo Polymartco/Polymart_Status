@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ── Polymart Status — one-click deploy for Google Cloud (Ubuntu/Debian VM) ───
+# ── Polymart Status - one-click deploy for Google Cloud (Ubuntu/Debian VM) ───
 # Usage: bash deploy.sh
 set -euo pipefail
 
@@ -11,7 +11,7 @@ die()   { echo -e "${RED}[error]${NC} $*" >&2; exit 1; }
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${CYAN}Polymart Status Page — Deploy${NC}"
+echo -e "${CYAN}Polymart Status Page - Deploy${NC}"
 echo "──────────────────────────────"
 read -rp "  Domain (e.g. status.polymart.co): " DOMAIN
 read -rp "  Email for SSL certificate:        " EMAIL
@@ -31,7 +31,7 @@ info "Waiting for apt lock to be free..."
 WAIT=0
 while sudo fuser /var/lib/dpkg/lock-frontend &>/dev/null; do
   if [[ $WAIT -ge 180 ]]; then
-    warn "apt lock held too long — stopping unattended-upgrades..."
+    warn "apt lock held too long - stopping unattended-upgrades..."
     sudo systemctl stop unattended-upgrades || true
     sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock
     sudo dpkg --configure -a --force-confold || true
@@ -146,8 +146,8 @@ echo "  Or: GCP Console → VPC Network → Firewall → Create Rule"
 echo "      Ports: tcp:80, tcp:443"
 echo ""
 echo -e "${CYAN}Useful commands:${NC}"
-echo "  sudo docker compose ps          — check container status"
-echo "  sudo docker compose logs -f     — live logs"
-echo "  sudo docker compose restart     — restart"
-echo "  sudo systemctl status nginx     — nginx status"
+echo "  sudo docker compose ps          - check container status"
+echo "  sudo docker compose logs -f     - live logs"
+echo "  sudo docker compose restart     - restart"
+echo "  sudo systemctl status nginx     - nginx status"
 echo ""

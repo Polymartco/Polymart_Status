@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ── Polymart Status — setup script ────────────────────────────────────────────
+# ── Polymart Status - setup script ────────────────────────────────────────────
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
@@ -42,9 +42,9 @@ case "${1:-dev}" in
     ;;
   *)
     echo "Usage: ./setup.sh [dev|build|preview|docker]"
-    echo "  dev     — start Vite dev server (default)"
-    echo "  build   — production build to dist/"
-    echo "  preview — build then serve locally"
-    echo "  docker  — build and run via Docker Compose"
+    echo "  dev     - start Vite dev server (default)"
+    echo "  build   - production build to dist/"
+    echo "  preview - build then serve locally"
+    echo "  docker  - build and run via Docker Compose"
     ;;
 esac

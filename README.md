@@ -77,7 +77,7 @@ Connect the repo and set:
 - **Output directory:** `dist`
 - **Node version:** 20
 
-No extra configuration needed — the app is a pure static SPA with no server-side requirements.
+No extra configuration needed - the app is a pure static SPA with no server-side requirements.
 
 ---
 
