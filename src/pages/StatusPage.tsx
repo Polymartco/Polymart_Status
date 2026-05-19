@@ -510,7 +510,13 @@ function SnapCell({ label, value, sub, subColor }: { label: string; value: strin
 
 // ─── Incident history ─────────────────────────────────────────────────────────
 
-const INCIDENTS: { date: string; title: string; status: 'RESOLVED' | 'INVESTIGATING' | 'MONITORING' }[] = []
+const INCIDENTS: { date: string; title: string; status: 'RESOLVED' | 'INVESTIGATING' | 'MONITORING' }[] = [
+  {
+    date: '2026-05-19',
+    title: 'Maintenance to server infrastructure',
+    status: 'INVESTIGATING',
+  },
+]
 
 function IncidentHistory() {
   const [expanded, setExpanded] = useState(false)
@@ -725,7 +731,7 @@ export default function StatusPage() {
 
         {/* Incidents */}
         <IncidentHistory />
-
+          
         {/* Footer */}
         <footer className="flex items-center justify-between pt-4 pb-8 border-t border-zinc-800">
           <p className="text-xs text-zinc-600">

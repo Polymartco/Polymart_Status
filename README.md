@@ -96,6 +96,11 @@ Incidents are maintained manually in the `INCIDENTS` array near the bottom of [`
 ```ts
 const INCIDENTS = [
   {
+    date: '2026-05-19',
+    title: 'Maintenance to server infrastructure',
+    status: 'INVESTIGATING',
+  },
+  {
     date: '2026-05-14',
     title: 'Brief database connectivity issue (duration: 4 min)',
     status: 'RESOLVED',
